@@ -9,15 +9,23 @@ interface UIRendererProps {
   isPreview?: boolean;
 }
 
+const resolveValue = (val: any, state: Record<string, any>) => {
+  if (typeof val !== 'string') return val;
+  return val.replace(/\{\{state\.(.*?)\}\}/g, (_, path) => {
+    return (state[path] as string) || '';
+  });
+};
+
 const UIRenderer: React.FC<UIRendererProps> = ({ node, isPreview = false }) => {
   const { eventBindings, logicGraphs, appState, setAppState } = useAppStore();
 
   const handleEvent = useCallback(
-    (event: string) => {
+    (event: string, value?: any) => {
       if (!isPreview) return;
       triggerEvent(node.id, event, eventBindings, logicGraphs, {
         appState,
         setAppState,
+        eventValue: value
       }).then((results) => {
         if (results.length > 0) {
           const lastResult = results[results.length - 1];
@@ -33,13 +41,26 @@ const UIRenderer: React.FC<UIRendererProps> = ({ node, isPreview = false }) => {
   const Component = componentRegistry[node.type];
   if (!Component) return <div>Unknown: {node.type}</div>;
 
-  const eventProps: Record<string, () => void> = {};
+  const resolvedProps = Object.keys(node.props).reduce((acc, key) => {
+    acc[key] = resolveValue(node.props[key], appState);
+    return acc;
+  }, {} as any);
+
+  const eventProps: any = {};
   if (isPreview) {
     const hasClickBinding = eventBindings.some(
       (b) => b.uiNodeId === node.id && b.event === 'onClick'
     );
     if (hasClickBinding) {
       eventProps.onClick = () => handleEvent('onClick');
+    }
+
+    const hasChangeBinding = eventBindings.some(
+      (b) => b.uiNodeId === node.id && b.event === 'onChange'
+    );
+    if (hasChangeBinding) {
+      eventProps.onChange = (e: React.ChangeEvent<HTMLInputElement>) => 
+        handleEvent('onChange', e.target.value);
     }
   }
 
@@ -50,7 +71,7 @@ const UIRenderer: React.FC<UIRendererProps> = ({ node, isPreview = false }) => {
     : undefined;
 
   return (
-    <Component {...node.props} {...eventProps} style={node.style}>
+    <Component {...resolvedProps} {...eventProps} style={node.style}>
       {childElements}
     </Component>
   );

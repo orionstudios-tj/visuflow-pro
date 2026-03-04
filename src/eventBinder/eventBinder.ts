@@ -25,7 +25,7 @@ export async function triggerEvent(
         console.warn(`Workflow ${binding.workflowId} not found for binding ${binding.id}`);
         return null;
       }
-      return runWorkflow(graph, context);
+      return runWorkflow(graph, { ...context });
     })
   );
   return results.filter(Boolean);

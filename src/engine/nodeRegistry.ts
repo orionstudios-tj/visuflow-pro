@@ -4,7 +4,20 @@ export interface NodeExecutionContext {
   appState: Record<string, unknown>;
   setAppState: (key: string, value: unknown) => void;
   navigate?: (path: string) => void;
+  eventValue?: unknown;
 }
+
+const resolveTemplate = (str: string, context: NodeExecutionContext): any => {
+  if (typeof str !== 'string') return str;
+  
+  // Handle {{event.value}}
+  if (str === '{{event.value}}') return context.eventValue;
+  
+  // Handle {{state.key}}
+  return str.replace(/\{\{state\.(.*?)\}\}/g, (_, path) => {
+    return (context.appState[path] as string) || '';
+  });
+};
 
 export type NodeExecutor = (
   config: LogicNodeConfig,
@@ -49,12 +62,18 @@ const executors: Record<string, NodeExecutor> = {
   SetState: async (config, context) => {
     const { key, value } = config;
     if (!key) throw new Error('SetState node: key is required');
-    let parsedValue: unknown = value;
-    try {
-      parsedValue = JSON.parse(value as string);
-    } catch {
-      // keep as string
+    
+    let resolvedValue = resolveTemplate(value as string, context);
+    let parsedValue: unknown = resolvedValue;
+    
+    if (typeof resolvedValue === 'string') {
+      try {
+        parsedValue = JSON.parse(resolvedValue);
+      } catch {
+        // keep as string
+      }
     }
+    
     context.setAppState(key as string, parsedValue);
     return { key, value: parsedValue };
   },

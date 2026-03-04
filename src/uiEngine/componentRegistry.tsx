@@ -56,23 +56,42 @@ const ButtonComponent: React.FC<{
 
 const InputComponent: React.FC<{
   placeholder?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   style?: React.CSSProperties;
-}> = ({ placeholder, style }) => (
-  <input
-    placeholder={placeholder || 'Enter text...'}
-    style={{
-      padding: '8px 12px',
-      borderRadius: '6px',
-      border: '1px solid hsl(225 12% 20%)',
-      backgroundColor: 'hsl(225 15% 16%)',
-      color: 'hsl(210 20% 90%)',
-      fontSize: '14px',
-      width: '100%',
-      outline: 'none',
-      ...style,
-    }}
-  />
-);
+}> = ({ placeholder, value: externalValue, onChange, style }) => {
+  const [localValue, setLocalValue] = React.useState(externalValue || '');
+
+  React.useEffect(() => {
+    setLocalValue(externalValue || '');
+  }, [externalValue]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+    if (onChange) {
+      onChange(e);
+    }
+  };
+
+  return (
+    <input
+      placeholder={placeholder || 'Enter text...'}
+      value={localValue}
+      onChange={handleChange}
+      style={{
+        padding: '8px 12px',
+        borderRadius: '6px',
+        border: '1px solid hsl(225 12% 20%)',
+        backgroundColor: 'hsl(225 15% 16%)',
+        color: 'hsl(210 20% 90%)',
+        fontSize: '14px',
+        width: '100%',
+        outline: 'none',
+        ...style,
+      }}
+    />
+  );
+};
 
 const TextComponent: React.FC<{ text?: string; style?: React.CSSProperties }> = ({ text, style }) => (
   <span style={{ fontSize: '14px', color: 'hsl(210 20% 90%)', ...style }}>{text || 'Text'}</span>

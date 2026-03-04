@@ -19,7 +19,7 @@ import '@xyflow/react/dist/style.css';
 import { useAppStore } from '@/store/appStore';
 import type { LogicGraph, LogicNode, LogicEdge, LogicNodeType } from '@/types/logic.types';
 import { validateDAG } from '@/engine/dagUtils';
-import { Zap, Globe, GitBranch, Clock, Database, Navigation, Plus, Play, AlertTriangle } from 'lucide-react';
+import { Zap, Globe, GitBranch, Clock, Database, Navigation, Plus, Play, AlertTriangle, Trash2 } from 'lucide-react';
 
 const NODE_COLORS: Record<LogicNodeType, string> = {
   Trigger: 'hsl(167 70% 50%)',
@@ -78,9 +78,102 @@ const nodeTypes = { logicNode: LogicNodeComponent };
 
 let flowCounter = 0;
 
+/* ── Node Properties Editor ── */
+const LogicNodeEditor: React.FC = () => {
+  const { selectedLogicNodeId, activeGraphId, logicGraphs, updateLogicGraph } = useAppStore();
+  
+  const activeGraph = logicGraphs.find(g => g.id === activeGraphId);
+  const node = activeGraph?.nodes.find(n => n.id === selectedLogicNodeId);
+
+  if (!node) return <div className="p-3 text-xs text-muted-foreground italic text-center">Select a node to configure</div>;
+
+  const updateNodeConfig = (updates: Partial<LogicNode['config']>) => {
+    if (!activeGraphId || !selectedLogicNodeId) return;
+    const newNodes = activeGraph.nodes.map(n => 
+      n.id === selectedLogicNodeId ? { ...n, config: { ...n.config, ...updates } } : n
+    );
+    updateLogicGraph(activeGraphId, { nodes: newNodes });
+  };
+
+  const updateNodeLabel = (label: string) => {
+    if (!activeGraphId || !selectedLogicNodeId) return;
+    const newNodes = activeGraph.nodes.map(n => 
+      n.id === selectedLogicNodeId ? { ...n, label } : n
+    );
+    updateLogicGraph(activeGraphId, { nodes: newNodes });
+  };
+
+  return (
+    <div className="p-3 space-y-3 bg-card border-t border-border" style={{ height: '220px', overflowY: 'auto' }}>
+      <div className="flex items-center justify-between border-b border-border pb-2 mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: NODE_COLORS[node.type] }} />
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{node.type} Node</span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase font-bold text-muted-foreground">Node Label</label>
+        <input
+          className="w-full px-2 py-1.5 rounded text-xs bg-secondary border border-border text-foreground outline-none focus:ring-1 focus:ring-primary"
+          value={node.label || ''}
+          onChange={(e) => updateNodeLabel(e.target.value)}
+        />
+      </div>
+
+      {node.type === 'SetState' && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground">State Key</label>
+            <input
+              className="w-full px-2 py-1.5 rounded text-xs bg-secondary border border-border text-foreground outline-none focus:ring-1 focus:ring-primary"
+              placeholder="e.g. resultText"
+              value={node.config.key || ''}
+              onChange={(e) => updateNodeConfig({ key: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground">Value (JSON/String)</label>
+            <input
+              className="w-full px-2 py-1.5 rounded text-xs bg-secondary border border-border text-foreground outline-none focus:ring-1 focus:ring-primary"
+              placeholder="e.g. 'Hello'"
+              value={node.config.value || ''}
+              onChange={(e) => updateNodeConfig({ value: e.target.value })}
+            />
+          </div>
+        </div>
+      )}
+
+      {node.type === 'Condition' && (
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase font-bold text-muted-foreground">Expression (JS)</label>
+          <input
+            className="w-full px-2 py-1.5 rounded text-xs bg-secondary border border-border text-foreground outline-none focus:ring-1 focus:ring-primary"
+            placeholder="e.g. state.counter > 10"
+            value={node.config.expression || ''}
+            onChange={(e) => updateNodeConfig({ expression: e.target.value })}
+          />
+        </div>
+      )}
+
+      {node.type === 'API' && (
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase font-bold text-muted-foreground">URL</label>
+          <input
+            className="w-full px-2 py-1.5 rounded text-xs bg-secondary border border-border text-foreground outline-none focus:ring-1 focus:ring-primary"
+            placeholder="https://api.example.com/data"
+            value={node.config.url || ''}
+            onChange={(e) => updateNodeConfig({ url: e.target.value })}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ── Logic Builder ── */
 const LogicBuilder: React.FC = () => {
-  const { logicGraphs, activeGraphId, setActiveGraph, addLogicGraph, updateLogicGraph } = useAppStore();
+  const { logicGraphs, activeGraphId, selectedLogicNodeId, setActiveGraph, selectLogicNode, addLogicGraph, updateLogicGraph } = useAppStore();
   const [dagError, setDagError] = useState<string | null>(null);
 
   const activeGraph = logicGraphs.find((g) => g.id === activeGraphId);
@@ -249,7 +342,7 @@ const LogicBuilder: React.FC = () => {
       )}
 
       {/* React Flow canvas */}
-      <div className="flex-1">
+      <div className="flex-1 relative">
         {activeGraph ? (
           <ReactFlow
             nodes={nodes}
@@ -258,6 +351,8 @@ const LogicBuilder: React.FC = () => {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeDragStop={onNodeDragStop}
+            onNodeClick={(_, node) => selectLogicNode(node.id)}
+            onPaneClick={() => selectLogicNode(null)}
             nodeTypes={nodeTypes}
             fitView
             proOptions={{ hideAttribution: true }}
@@ -275,6 +370,9 @@ const LogicBuilder: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Configuration Panel */}
+      {activeGraph && <LogicNodeEditor />}
     </div>
   );
 };

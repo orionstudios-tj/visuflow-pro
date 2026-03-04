@@ -24,7 +24,9 @@ interface AppState {
   // Logic Graphs
   logicGraphs: LogicGraph[];
   activeGraphId: string | null;
+  selectedLogicNodeId: string | null;
   setActiveGraph: (id: string | null) => void;
+  selectLogicNode: (id: string | null) => void;
   addLogicGraph: (graph: LogicGraph) => void;
   updateLogicGraph: (id: string, graph: Partial<LogicGraph>) => void;
   removeLogicGraph: (id: string) => void;
@@ -91,7 +93,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   logicGraphs: [],
   activeGraphId: null,
-  setActiveGraph: (id) => set({ activeGraphId: id }),
+  selectedLogicNodeId: null,
+  setActiveGraph: (id) => set({ activeGraphId: id, selectedLogicNodeId: null }),
+  selectLogicNode: (id) => set({ selectedLogicNodeId: id }),
   addLogicGraph: (graph) => set((s) => ({ logicGraphs: [...s.logicGraphs, graph] })),
   updateLogicGraph: (id, updates) =>
     set((s) => ({
